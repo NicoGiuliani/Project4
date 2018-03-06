@@ -2,81 +2,116 @@ import java.text.DecimalFormat;
 import java.util.Random;
 import java.util.Scanner;
 
+// Figure out how to wait between lines of text
+
+
+
 public class Game {
+    private static int playerWins = 0;
+    private static int computerWins = 0;
 
     public static void main(String[] args) {
-        playGame();
+        // playGame returns false if the user chooses to play no additional rounds, stopping the while loop
+        while (playGame());
+
+        // These messages are displayed once the user chooses not to play any additional rounds
+        System.out.println("\nPlayer wins: " + playerWins + "\nComputer wins: " + computerWins);
+        System.out.println("You won " + roundTwoPlaces(playerWins / (playerWins + computerWins)) * 100 + "% of the games played.");
     }
 
-    // Generates a random int between the max and min values
+    // Returns a random int between the min and max values passed in
     private static int generateRandom(int min, int max) {
         Random random = new Random();
         return Math.abs(random.nextInt()) % (max - min + 1) + min;
     }
 
+    // Converts theta from degrees to radians, then returns the distance the fired shell has traveled
     private static double getShellDistance(double theta, double speed) {
-        // Converts degrees into radians
         theta = (theta * Math.PI) / 180;
         return (Math.pow(speed, 2) * Math.sin(2 * theta)) / 9.8;
     }
 
-    // returns a boolean to be used for the keepGoing variable
-    private static boolean computerTurn(int[] enemyRange) {
+    private static double roundTwoPlaces(double number) {
         DecimalFormat df = new DecimalFormat("#.##");
-        int angle = generateRandom(0, 90);
-        int speed = generateRandom(0, 100);
-        System.out.println("\nEnemy fired at " + angle + " degrees at " + speed + " m/s.");
-
-        double shellDistance = getShellDistance(angle, speed);
-        shellDistance = Double.parseDouble(df.format(shellDistance));
-
-        System.out.println("\nShell exploded at " + shellDistance + " meters.");
-
-        if (shellDistance >= enemyRange[0] && shellDistance <= enemyRange[1]) {
-            System.out.println("Enemy was destroyed.");
-            return false;
-        } else {
-            return true;
-        }
+        return Double.parseDouble(df.format(number));
     }
 
-    private static void playGame() {
+    // The computer will fire a shell at a random angle and speed; it will return false if it strikes its target
+    private static boolean computerTurn(int[] enemyRange) {
+        String degreesSign = "\u00B0";
+        int angle = generateRandom(1, 90);
+        int speed = generateRandom(1, 100);
+
+        System.out.println("\nEnemy fired at " + angle + degreesSign + " at " + speed + " m/s.");
+
+        double shellDistance = getShellDistance(angle, speed);
+        shellDistance = roundTwoPlaces(shellDistance);
+
+        int enemyDistance = (enemyRange[0] + enemyRange[1]) / 2;
+
+        double distanceFromPosition;
+        System.out.println("Its shell traveled " + shellDistance + " meters.");
+        if (shellDistance < enemyDistance) {
+            distanceFromPosition = roundTwoPlaces(enemyDistance - shellDistance);
+            System.out.println("Shell exploded " + distanceFromPosition + " meters from your position.");
+        } else if (shellDistance > enemyDistance) {
+            distanceFromPosition = roundTwoPlaces(shellDistance - enemyDistance);
+            System.out.println("Shell exploded " + distanceFromPosition + " meters behind your position.");
+        }
+
+        if (shellDistance >= enemyRange[0] && shellDistance <= enemyRange[1]) {
+            System.out.println("Your artillery was destroyed.");
+            computerWins++;
+            return false;
+        }
+        return true;
+    }
+
+    // The player will enter an angle and speed at which to fire a shell; it will return false if the player wins
+    private static boolean playerTurn(int[] enemyRange) {
         Scanner scan = new Scanner(System.in);
-        DecimalFormat df = new DecimalFormat("#.##");
-        boolean keepGoing = true;
-        // Player one is assumed to be at distance 0 since it sits at the origin
+        int enemyDistance = (enemyRange[0] + enemyRange[1]) / 2;
+
+        System.out.println("\nEnemy artillery is at approximately " + enemyDistance + " meter(s).");
+        System.out.println("\nEnemy range is between " + enemyRange[0] + " meters(s) and " + enemyRange[1] + " meter(s).");
+
+        System.out.print("Enter an angle in degrees: ");
+        double angle = Double.parseDouble(scan.nextLine());
+        System.out.print("Enter a speed: ");
+        double speed = Double.parseDouble(scan.nextLine());
+
+        double shellDistance = getShellDistance(angle, speed);
+        shellDistance = roundTwoPlaces(shellDistance);
+
+        System.out.print("\nShell exploded at " + shellDistance + " meters. (press any key to continue)");
+        scan.nextLine();
+
+        if (shellDistance >= enemyRange[0] && shellDistance <= enemyRange[1]) {
+            System.out.println("\nEnemy was destroyed.");
+            playerWins++;
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean playGame() {
+        Scanner scan = new Scanner(System.in);
 
         // This is the distance between players 1 & 2
-        int enemyDistance = generateRandom(50, 300);
+        int enemyDistance = generateRandom(50, 500);
         int radius = 5;
         int[] enemyRange = { enemyDistance - radius, enemyDistance + radius };
 
-        do {
-            String message = "\nEnemy artillery is at approximately " + enemyDistance + " yard(s).";
-            String messageTwo = "\nEnemy range is between " + enemyRange[0] + " yard(s) and " + enemyRange[1] + " yard(s).";
-            System.out.println(message);
-            System.out.println(messageTwo);
-            System.out.print("Enter an angle in degrees: ");
-            double angle = scan.nextDouble();
-            System.out.print("Enter a speed: ");
-            double speed = scan.nextDouble();
-            double shellDistance = getShellDistance(angle, speed);
-            shellDistance = Double.parseDouble(df.format(shellDistance));
-            System.out.println("\nShell exploded at " + shellDistance + " meters.");
+        while (true) {
+            // If during either player's turn the other's artillery is destroyed, the methods return false.
+            if (!playerTurn(enemyRange)) { break; }
+            else if (!computerTurn(enemyRange)) { break; }
+        }
 
-            if (shellDistance >= enemyRange[0] && shellDistance <= enemyRange[1]) {
-                System.out.println("\nEnemy was destroyed.");
-                keepGoing = false;
-            } else {
-                // now computer should take a turn
-                computerTurn(enemyRange);
-            }
-
-
-        } while (keepGoing);
-
+        System.out.print("Would you like to play again? ( Y / N ) ");
+        String response = scan.next();
+        return response.equalsIgnoreCase("y");
 
     }
-
 
 }
